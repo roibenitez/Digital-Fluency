@@ -805,7 +805,7 @@ function setStep(n){
   });
 }
 
-var WORKER_URL='https://script.google.com/macros/s/AKfycbwT-LP-bJOsRFPOHyk6zp7g0hP8QCNmQeJELTWutbNuYTnayYflfFBGaYkC_gdTNaXh1w/exec';
+var WORKER_URL='https://script.google.com/macros/s/AKfycbxtLZzB01z9rOdpJbCAc8J60X4UBrywum58DMmP2UEEw123gQimo7K8Z-ibtXVwcQQQJA/exec';
 
 /* ══ GENERATE ══ */
 async function generateNews(){
@@ -895,6 +895,7 @@ async function saveSession(){
   try{
     await fetch(WORKER_URL+'?path=sessions',{
       method:'POST',
+      mode:'no-cors',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify(session)
     });
@@ -932,7 +933,7 @@ function exportCSV(){
 async function clearSessions(){
   if(!confirm('¿Eliminar todas las sesiones del servidor? Esta acción no se puede deshacer.'))return;
   try{
-    await fetch(WORKER_URL+'?path=sessions&method=DELETE',{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:'{}'});
+    await fetch(WORKER_URL+'?path=sessions&method=DELETE',{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:'{}'});
   }catch(e){console.error('Error deleting',e)}
   sessions=[];
   renderDashboard();
@@ -956,11 +957,22 @@ function resetAll(){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
+/* ══ JSONP helper (evita CORS en GET a Apps Script) ══ */
+function fetchJSONP(url){
+  return new Promise(function(resolve,reject){
+    var cb='__jsonp_'+Date.now();
+    window[cb]=function(data){resolve(data);delete window[cb];script.remove()};
+    var script=document.createElement('script');
+    script.src=url.replace('__cb',cb);
+    script.onerror=function(){reject(new Error('JSONP error'));delete window[cb];script.remove()};
+    document.head.appendChild(script);
+  });
+}
+
 /* ══ DASHBOARD ══ */
 async function renderDashboard(){
   try{
-    var r=await fetch(WORKER_URL+'?path=sessions',{redirect:'follow'});
-    sessions=await r.json();
+    sessions=await fetchJSONP(WORKER_URL+'?path=sessions&callback=__cb');
   }catch(e){console.error('Error fetching sessions',e);}
 
   var empty=document.getElementById('dash-empty');
